@@ -25,7 +25,9 @@ struct future_type {
       return {};
     }
 
-    std::suspend_never final_suspend() noexcept
+    // 若返回 suspend_never，则协程结束时，状态会自动销毁。
+    // 若返回 suspend_always，则协程结束时，需要显式销毁协程对象，即 h.destroy()
+    std::suspend_always final_suspend() noexcept
     {
       std::cout << __PRETTY_FUNCTION__ << std::endl;
       return {};
@@ -47,6 +49,12 @@ struct future_type {
     : handle { std::exchange(c.handle, nullptr) }
   {
       std::cout << __PRETTY_FUNCTION__ << std::endl;
+  }
+
+  ~future_type()
+  {
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    handle.destroy();
   }
 };
 
@@ -77,6 +85,7 @@ struct awaiter {
 future_type counter(int terminal)
 {
   awaiter a;
+  volatile int v[256] = { 0 };
   for (int i = 0; i < terminal; ++i) {
     co_await awaiter{};
     std::cout << "counter seed=" << terminal << " " << i << std::endl;
