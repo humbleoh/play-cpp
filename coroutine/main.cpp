@@ -13,6 +13,17 @@ struct future_type {
   }
 
   struct promise_type {
+    // promise ctor 的参数可以匹配协程函数的参数
+    promise_type(int i)
+    {
+      std::cout << __PRETTY_FUNCTION__ << " " << i << std::endl;
+    }
+
+    promise_type()
+    {
+      std::cout << __PRETTY_FUNCTION__ << std::endl;
+    }
+
     future_type get_return_object()
     {
       std::cout << __PRETTY_FUNCTION__ << std::endl;
