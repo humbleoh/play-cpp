@@ -2,6 +2,7 @@
 #include <coroutine>
 #include <exception>
 #include <iostream>
+#include <new>
 #include <utility>
 
 #include <cstddef>
@@ -36,6 +37,18 @@ public:
   std::suspend_always final_suspend() noexcept;
   void unhandled_exception();
   void return_value(int v);
+
+  void* operator new(std::size_t size)
+  {
+    std::cout << "new:" << size << std::endl;
+    return malloc(size);
+  }
+
+  void operator delete(void* p)
+  {
+    std::cout << "delete" << std::endl;
+    free(p);
+  }
 
 private:
   friend class task;
@@ -199,6 +212,18 @@ int task::await_resume()
   return p.m_value;
 }
 
+void* operator new(std::size_t size)
+{
+  std::cout << "global-new: " << size << std::endl;
+  return malloc(size);
+}
+
+void operator delete(void* p)
+{
+  std::cout << "global-delete" << std::endl;
+  free(p);
+}
+
 task test_func()
 {
   int i = 0;
@@ -211,6 +236,7 @@ task test_func()
 
 task test_inner(int i)
 {
+  volatile std::uint8_t v[256] = {0};
   co_return i + 1000; 
 }
 
@@ -233,6 +259,7 @@ int main(int argc, char* argv[])
     c.schedule();
   }
 #endif
+  std::cout << "task_ctrlblk:" << sizeof(task_ctrlblk) << std::endl;
   auto c = test_nested();
   c.resume();
   c.resume();
