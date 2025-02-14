@@ -32,8 +32,10 @@ class task_ctrlblk {
 public:
   task get_return_object();
   std::suspend_always initial_suspend();
+  // final_suspend() 必须是 noexcept
   std::suspend_always final_suspend() noexcept;
   void unhandled_exception();
+  void return_value(int v);
 
 private:
   friend class task;
@@ -64,6 +66,7 @@ private:
   params_type m_params;
   awaiting_state m_state = awaiting_state::IDLE;
   int m_status = -1;
+  int m_value = 0;
 };
 
 class awaiter {
@@ -145,6 +148,11 @@ void task_ctrlblk::unhandled_exception()
 {
 }
 
+void task_ctrlblk::return_value(int v)
+{
+  m_value = v;
+}
+
 task::task(task_ctrlblk& p)
   : m_handle { std::coroutine_handle<task_ctrlblk>::from_promise(p) }
 {
@@ -179,13 +187,16 @@ bool task::await_ready()
 
 void task::await_suspend(std::coroutine_handle<task_ctrlblk> handle)
 {
+  // 启动当下内层协程直至被挂起
   m_handle.resume();
+  // 恢复外层协程
   handle.resume();
 }
 
 int task::await_resume()
 {
-  return -2;
+  auto&& p = m_handle.promise();
+  return p.m_value;
 }
 
 task test_func()
@@ -198,12 +209,34 @@ task test_func()
   }
 }
 
+task test_inner(int i)
+{
+  co_return i + 1000; 
+}
+
+task test_nested()
+{
+  int i = 0;
+  for (;;) {
+    int rc = co_await test_inner(i++);
+    std::cout << "co_await task: " << rc << std::endl;
+    co_await awaiter {};
+  }
+}
+
 int main(int argc, char* argv[])
 {
+#if 0
   auto c =  test_func();
   c.resume();
   for (int i = 0; i < 4; ++i) {
     c.schedule();
   }
+#endif
+  auto c = test_nested();
+  c.resume();
+  c.resume();
+  c.resume();
+  c.resume();
   return 0;
 }
