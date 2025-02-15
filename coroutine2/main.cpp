@@ -38,16 +38,33 @@ public:
   void unhandled_exception();
   void return_value(int v);
 
-  void* operator new(std::size_t size)
+  static constexpr std::uint8_t NUM_DEVICES = 10u;
+  static std::uint8_t static_heap[10u][512];
+  static std::uint32_t mask_devices;
+  void* operator new(std::size_t size) noexcept
   {
-    std::cout << "new:" << size << std::endl;
-    return malloc(size);
+    std::cout << "> new:" << size << std::endl;
+    if (size > 512u) {
+      std::cout << "> wrong size" << std::endl;
+      return nullptr;
+    }
+    for (int i = 0; i < NUM_DEVICES; ++i) {
+      if (!(mask_devices & (1u << i))) {
+        std::cout << "> new idx:" << i << std::endl;
+        mask_devices |= (1u << i);
+        return static_heap[i];
+      }
+    }
+    return nullptr;
   }
 
   void operator delete(void* p)
   {
-    std::cout << "delete" << std::endl;
-    free(p);
+    std::cout << "> delete" << std::endl;
+    auto a = reinterpret_cast<std::uint8_t*>(p);
+    uint32_t idx = (a - static_heap[0]) / 512u;
+    std::cout << "> delete idx:" << idx << std::endl;
+    mask_devices &= ~(1u << idx);
   }
 
 private:
@@ -81,6 +98,9 @@ private:
   int m_status = -1;
   int m_value = 0;
 };
+
+std::uint8_t task_ctrlblk::static_heap[10u][512] = { 0 };
+std::uint32_t task_ctrlblk::mask_devices = 0u;
 
 class awaiter {
 public:
@@ -240,12 +260,24 @@ task test_inner(int i)
   co_return i + 1000; 
 }
 
+task test_inner2(int i)
+{
+  co_return i + 2000; 
+}
+
 task test_nested()
 {
   int i = 0;
+  bool alt = true;
   for (;;) {
-    int rc = co_await test_inner(i++);
-    std::cout << "co_await task: " << rc << std::endl;
+    if (alt) {
+      int rc = co_await test_inner(i++);
+      std::cout << "co_await task: " << rc << std::endl;
+    } else {
+      int rc = co_await test_inner2(i++);
+      std::cout << "co_await task2: " << rc << std::endl;
+    }
+    alt = !alt;
     co_await awaiter {};
   }
 }
@@ -261,9 +293,14 @@ int main(int argc, char* argv[])
 #endif
   std::cout << "task_ctrlblk:" << sizeof(task_ctrlblk) << std::endl;
   auto c = test_nested();
+  auto d = test_nested();
   c.resume();
+  d.resume();
   c.resume();
+  d.resume();
   c.resume();
+  d.resume();
   c.resume();
+  d.resume();
   return 0;
 }
