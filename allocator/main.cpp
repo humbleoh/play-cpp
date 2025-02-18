@@ -1,9 +1,9 @@
-#include <concepts>
-#include <exception>
 #include <iostream>
+#include <map>
+#include <mutex>
 #include <new>
-#include <utility>
 
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
@@ -51,7 +51,96 @@ public:
   };
 };
 
+class heap_tracker {
+public:
+  static heap_tracker& get_instance()
+  {
+    static heap_tracker singleton;
+    return singleton;
+  }
+
+  std::size_t size_allocated() const noexcept
+  {
+    return m_total_allocated;
+  }
+
+  void increase_size_allocated(void* p, std::size_t size)
+  {
+    std::lock_guard<std::mutex> lk { m_mutex };
+    assert(m_map_size_track.find(p) == std::end(m_map_size_track));
+    m_map_size_track[p] = size;
+    m_total_allocated += size;
+  }
+
+  void decrease_size_allocated(void* p, std::size_t size = 0)
+  {
+    assert(m_total_allocated >= size);
+    std::lock_guard<std::mutex> lk { m_mutex };
+    assert(m_map_size_track.find(p) != std::end(m_map_size_track));
+    assert(size == 0 || m_map_size_track[p] == size);
+    m_total_allocated -= m_map_size_track[p];
+    m_map_size_track.erase(p);;
+  }
+
+  heap_tracker(const heap_tracker&) = delete;
+  heap_tracker(heap_tracker&&) = delete;
+  heap_tracker& operator=(const heap_tracker&) = delete;
+  heap_tracker& operator=(heap_tracker&&) = delete;
+
+private:
+  heap_tracker() = default;
+  ~heap_tracker() = default;
+
+private:
+  using map_ptr_to_size = std::map<void*, std::size_t,
+    std::less<void*>, simple_allocator<std::pair<void* const, std::size_t>>>;
+  map_ptr_to_size m_map_size_track;
+  std::size_t m_total_allocated = 0u;
+  std::mutex m_mutex;
+};
+
+void* operator new(std::size_t size)
+{
+  auto& ht = heap_tracker::get_instance();
+  auto p = malloc(size);
+  ht.increase_size_allocated(p, size);
+  return p;
+}
+
+void* operator new(std::size_t size, const std::nothrow_t& tag)
+{
+  auto& ht = heap_tracker::get_instance();
+  auto p = malloc(size);
+  ht.increase_size_allocated(p, size);
+  return p;
+}
+
+void operator delete(void* p)
+{
+  auto& ht = heap_tracker::get_instance();
+  ht.decrease_size_allocated(p);
+  free(p);
+}
+
+
+void operator delete(void* p, std::size_t size)
+{
+  auto& ht = heap_tracker::get_instance();
+  ht.decrease_size_allocated(p, size);
+  free(p);
+}
+
 int main(int argc, char* argv[])
 {
+  auto& ht = heap_tracker::get_instance();
+  std::cout << ht.size_allocated() << std::endl;
+  auto p1 = new int32_t { 100 };
+  std::cout << ht.size_allocated() << std::endl;
+  auto p2 = new int64_t { 200 };
+  std::cout << ht.size_allocated() << std::endl;
+  delete p1;
+  std::cout << ht.size_allocated() << std::endl;
+  delete p2;
+  std::cout << ht.size_allocated() << std::endl;
   return 0;
 }
