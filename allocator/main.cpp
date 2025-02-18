@@ -92,6 +92,7 @@ private:
   ~heap_tracker() = default;
 
 private:
+  // 映射表使用客制分配器，以避免循环调用。
   using map_ptr_to_size = std::map<void*, std::size_t,
     std::less<void*>, simple_allocator<std::pair<void* const, std::size_t>>>;
   map_ptr_to_size m_map_size_track;
@@ -121,7 +122,6 @@ void operator delete(void* p)
   ht.decrease_size_allocated(p);
   free(p);
 }
-
 
 void operator delete(void* p, std::size_t size)
 {
