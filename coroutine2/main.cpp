@@ -9,6 +9,7 @@
 #include <cstdint>
 
 class task_ctrlblk;
+class task_ctrlblk_base;
 
 class task {
 public:
@@ -19,55 +20,19 @@ public:
   ~task();
 
   bool await_ready();
-  void await_suspend(std::coroutine_handle<task_ctrlblk> handle);
+  void await_suspend(std::coroutine_handle<> handle);
   int await_resume();
 
   void resume();
   void schedule();
 
 private:
-  std::coroutine_handle<promise_type> m_handle;
+  std::coroutine_handle<task_ctrlblk_base> m_handle;
 };
 
-class task_ctrlblk {
+class task_ctrlblk_base {
 public:
-  task get_return_object();
-  std::suspend_always initial_suspend();
-  // final_suspend() 必须是 noexcept
-  std::suspend_always final_suspend() noexcept;
-  void unhandled_exception();
-  void return_value(int v);
 
-  static constexpr std::uint8_t NUM_DEVICES = 10u;
-  static std::uint8_t static_heap[10u][512];
-  static std::uint32_t mask_devices;
-  void* operator new(std::size_t size) noexcept
-  {
-    std::cout << "> new:" << size << std::endl;
-    if (size > 512u) {
-      std::cout << "> wrong size" << std::endl;
-      return nullptr;
-    }
-    for (int i = 0; i < NUM_DEVICES; ++i) {
-      if (!(mask_devices & (1u << i))) {
-        std::cout << "> new idx:" << i << std::endl;
-        mask_devices |= (1u << i);
-        return static_heap[i];
-      }
-    }
-    return nullptr;
-  }
-
-  void operator delete(void* p)
-  {
-    std::cout << "> delete" << std::endl;
-    auto a = reinterpret_cast<std::uint8_t*>(p);
-    uint32_t idx = (a - static_heap[0]) / 512u;
-    std::cout << "> delete idx:" << idx << std::endl;
-    mask_devices &= ~(1u << idx);
-  }
-
-private:
   friend class task;
   friend class awaiter_counter;
 
@@ -99,6 +64,46 @@ private:
   int m_value = 0;
 };
 
+class task_ctrlblk : public task_ctrlblk_base {
+public:
+  task get_return_object();
+  std::suspend_always initial_suspend();
+  // final_suspend() 必须是 noexcept
+  std::suspend_always final_suspend() noexcept;
+  void unhandled_exception();
+  void return_value(int v);
+
+  static constexpr std::uint8_t NUM_DEVICES = 10u;
+  static std::uint8_t static_heap[10u][512];
+  static std::uint32_t mask_devices;
+  void* operator new(std::size_t size) noexcept
+  {
+    std::cout << "> new:" << size << std::endl;
+    if (size > 512u) {
+      std::cout << "> wrong size" << std::endl;
+      return nullptr;
+    }
+    for (int i = 0; i < NUM_DEVICES; ++i) {
+      if (((mask_devices >> i) & 1u) == 0u) {
+        std::cout << "> new idx:" << i << std::endl;
+        mask_devices |= (1u << i);
+        return static_heap[i];
+      }
+    }
+    return nullptr;
+  }
+
+  void operator delete(void* p)
+  {
+    std::cout << "> delete" << std::endl;
+    auto a = reinterpret_cast<std::uint8_t*>(p);
+    uint32_t idx = (a - static_heap[0]) / 512u;
+    std::cout << "> delete idx:" << idx << std::endl;
+    mask_devices &= ~(1u << idx);
+  }
+
+};
+
 std::uint8_t task_ctrlblk::static_heap[10u][512] = { 0 };
 std::uint32_t task_ctrlblk::mask_devices = 0u;
 
@@ -106,11 +111,11 @@ class awaiter {
 public:
   awaiter() = default;
   bool await_ready();
-  void await_suspend(std::coroutine_handle<task_ctrlblk> handle);
+  void await_suspend(std::coroutine_handle<> handle);
   int await_resume();
 
 private:
-  std::coroutine_handle<task_ctrlblk> m_handle;
+  std::coroutine_handle<task_ctrlblk_base> m_handle;
 };
 
 // awaiter 对象就是一个异步操作，构建 awaiter 对象时传入操作参数。
@@ -120,11 +125,11 @@ class awaiter_counter {
 public:
   awaiter_counter() = default;
   bool await_ready();
-  void await_suspend(std::coroutine_handle<task_ctrlblk> handle);
+  void await_suspend(std::coroutine_handle<> handle);
   int await_resume();
 
 private:
-  std::coroutine_handle<task_ctrlblk> m_handle;
+  std::coroutine_handle<task_ctrlblk_base> m_handle;
 };
 
 bool awaiter_counter::await_ready()
@@ -132,10 +137,11 @@ bool awaiter_counter::await_ready()
   return false;
 }
 
-void awaiter_counter::await_suspend(std::coroutine_handle<task_ctrlblk> handle)
+void awaiter_counter::await_suspend(std::coroutine_handle<> handle)
 {
-  m_handle = handle;
-  auto&& p = m_handle.promise();
+  auto h = std::coroutine_handle<task_ctrlblk_base>::from_address(handle.address());
+  m_handle = h;
+  auto&& p = h.promise();
   p.m_status = 1;
   p.m_state = task_ctrlblk::awaiting_state::WAITING;
   p.m_meta.counter = 0;
@@ -152,9 +158,10 @@ bool awaiter::await_ready()
   return false;
 }
 
-void awaiter::await_suspend(std::coroutine_handle<task_ctrlblk> handle)
+void awaiter::await_suspend(std::coroutine_handle<> handle)
 {
-  m_handle = handle;
+  auto h = std::coroutine_handle<task_ctrlblk_base>::from_address(handle.address());
+  m_handle = h;
 }
 
 int awaiter::await_resume()
@@ -187,7 +194,7 @@ void task_ctrlblk::return_value(int v)
 }
 
 task::task(task_ctrlblk& p)
-  : m_handle { std::coroutine_handle<task_ctrlblk>::from_promise(p) }
+  : m_handle { std::coroutine_handle<task_ctrlblk_base>::from_promise(p) }
 {
 }
 
@@ -218,7 +225,7 @@ bool task::await_ready()
   return false;
 }
 
-void task::await_suspend(std::coroutine_handle<task_ctrlblk> handle)
+void task::await_suspend(std::coroutine_handle<> handle)
 {
   // 启动当下内层协程直至被挂起
   m_handle.resume();
