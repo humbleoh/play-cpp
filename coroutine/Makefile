@@ -2,6 +2,8 @@ BUILD ?= debug
 TARGET := test_coroutine
 CXX := g++
 CXXFLAGS := -std=c++20 -fcoroutines
+# 预处理标志
+CPPFLAGS :=
 LDFLAGS :=
 
 ifeq ($(BUILD), debug)
