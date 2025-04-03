@@ -14,6 +14,9 @@ CXXFLAGS += -g -fno-omit-frame-pointer
 # 工作在检查过程的最后阶段。
 CXXFLAGS += -fsanitize=address
 LDFLAGS += -static-libasan
+else
+# assert() 开关
+CXXFLAGS += -DNDEBUG
 endif
 
 SRCS := $(wildcard *.cpp)

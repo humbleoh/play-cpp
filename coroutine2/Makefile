@@ -10,6 +10,8 @@ CXXFLAGS += -fsanitize=address
 #CXXFLAGS += -fsanitize=leak
 LDFLAGS += -static-libasan -fsanitize=address
 #LDFLAGS += -llsan -fsanitize=leak
+else
+CXXFLAGS += -DNDEBUG
 endif
 
 SRCS := $(wildcard *.cpp)
