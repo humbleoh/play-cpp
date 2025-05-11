@@ -42,7 +42,7 @@ public:
 
   auto lock() -> sync_lock
   {
-    return { m_data, m_mutex };
+    return { m_data, m_mutex }; // 拷备消除
   }
 
 private:
