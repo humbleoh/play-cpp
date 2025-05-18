@@ -22,7 +22,7 @@ std::uint64_t factorial_nontailrecur(std::uint64_t n)
     return 1;
 
   // Although the last operation is not the recursive call, it is
-  // treated as if a tail recursiion by the compiler, and is optimized
+  // treated as a tail recursiion by the compiler, and is optimized
   // away at and above -O2 optimization level.
   return n * factorial_nontailrecur(n - 1);
 }
