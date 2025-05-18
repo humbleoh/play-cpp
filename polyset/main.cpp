@@ -27,6 +27,8 @@ public:
     return v.result;
   }
 
+  // std::monostate 在这里的作用是作为模版参数占位符，因为 c++ 不允许嵌套类模版
+  // 的显式全特化，而我们这里的嵌套类模版的结束类是一个全特化的类模版。
   template<std::monostate, typename... TDs>
   struct visitor_impl;
 
@@ -56,10 +58,10 @@ public:
 
   template<std::monostate PH>
   struct visitor_impl<PH> {
-    void visit();
-    const void* first { nullptr };
-    int rank { 0 };
-    bool result { false };
+    void visit(); // 无需定义，只是用来 workaround 上面的 base::visit 形式问题。
+    const void* first { nullptr }; // 二元比较操作的左元素
+    int rank { 0 }; // 左元素的优先级
+    bool result { false }; // 比较操作结果
   };
 
   using visitor = visitor_impl<std::monostate{}, Ts...>;
@@ -69,6 +71,9 @@ public:
     virtual void accept(visitor& v) const = 0;
   };
 
+  // 很难解耦元素访问 interface 与 dispatcher  interface，因为 set 指定的是元素
+  // 访问 interface，而 set 的 comparator 要求 dispatcher interface。所以，我们
+  // 必须强制元素访问 interface 也必须是 dispatcher interface，进而引入了虚继承
   template<typename Acceptor>
   class visit_dispatcher : virtual public visit_dispatcher_interface {
   public:
