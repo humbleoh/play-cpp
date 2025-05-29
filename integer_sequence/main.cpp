@@ -26,7 +26,10 @@ struct make_integer_sequence_impl<0, Ns...>
 };
 
 template<std::size_t N>
-constexpr auto make_integer_sequence() noexcept
+using make_integer_sequence0 = typename make_integer_sequence_impl<N>::type;
+
+template<std::size_t N>
+constexpr auto make_integer_sequence1() noexcept
 {
   return typename make_integer_sequence_impl<N>::type{};
 }
@@ -39,9 +42,9 @@ void print_integer_sequence(integer_sequence<Ns...>)
 
 int main(int argc, char* argv[])
 {
-  print_integer_sequence(make_integer_sequence<5>());
+  print_integer_sequence(make_integer_sequence0<5>{});
   std::cout << "==>" << std::endl;
-  print_integer_sequence(make_integer_sequence<6>());
+  print_integer_sequence(make_integer_sequence1<6>());
   return 0;
 }
 
