@@ -1,6 +1,7 @@
 #include <deque>
 #include <iostream>
 #include <map>
+#include <sstream>
 
 #include <cassert>
 #include <cstddef>
@@ -71,6 +72,17 @@ public:
     return fifo_queue_.size();
   }
 
+  std::string to_string()
+  {
+    std::stringstream os;
+    os << "cache=>";
+    for (auto p: fifo_queue_) {
+      os << "{" << p.first << "," << p.second << "},";
+    }
+
+    return os.str();
+  }
+
 private:
   std::size_t capacity_{ 0 };
   std::size_t size_{ 0 };
@@ -88,35 +100,46 @@ int main(int argc, char* argv[])
   int key = 1;
   bool rb = cache.put(key, value);
   assert(!rb);
+  assert(cache.size() == 1);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
-  assert(cache.size() == 1);
+  std::cout << cache.to_string() << std::endl;
+
   key = 1;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(value == 'A');
+
   key = 0;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
+
   value = 'B';;
   key = 1;
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 1);
+
   key = 1;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(value == 'B');
+
   value = 'Z';;
   key = 2;
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 2);
 
@@ -125,6 +148,7 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 3);
 
@@ -133,6 +157,7 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 4);
 
@@ -141,6 +166,7 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 5);
 
@@ -149,12 +175,14 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(cache.size() == 5);
 
   key = 1;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
 
   value = '-';;
@@ -162,6 +190,7 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(cache.size() == 5);
 
@@ -170,17 +199,20 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(cache.size() == 5);
 
   key = 3;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
 
   key = 4;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(value == 'X');
 
@@ -189,13 +221,16 @@ int main(int argc, char* argv[])
   rb = cache.put(key, value);
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(rb);
   assert(cache.size() == 5);
 
   key = 5;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << cache.to_string() << std::endl;
   assert(!rb);
   assert(cache.size() == 5);
+
   return 0;
 }
