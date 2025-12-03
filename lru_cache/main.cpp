@@ -22,6 +22,9 @@ public:
       return false;
     }
     value = it->second->second;
+    fifo_queue_.erase(it->second);
+    auto nit = fifo_queue_.insert(std::end(fifo_queue_), {key, value});
+    it->second = nit;
     return true;
   }
 
@@ -122,6 +125,17 @@ int main(int argc, char* argv[])
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
   key = 3;
+  rb = cache.get(key, value);
+  std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  key = 4;
+  rb = cache.get(key, value);
+  std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
+  value = '=';
+  key = 8;
+  rb = cache.put(key, value);
+  std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
+  std::cout << "size: " << cache.size() << std::endl;
+  key = 5;
   rb = cache.get(key, value);
   std::cout << "get: " << rb << " key: " << key << " value: " << value << std::endl;
   return 0;
