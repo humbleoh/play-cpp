@@ -60,6 +60,7 @@ public:
       cache_.emplace(key, nit);
       return true;
     } else {
+      // 可否优化，即复用迭代器？
       fifo_queue_.erase(it->second);
       auto nit = fifo_queue_.insert(std::end(fifo_queue_), {key, value});
       it->second = nit;
@@ -87,8 +88,11 @@ private:
   std::size_t capacity_{ 0 };
   std::size_t size_{ 0 };
   using Node = std::pair<int, char>;
+  // 如何高效操纵 fifo_queue_ 的迭代器，比如迭代器有没有办法出队后再重新入队并
+  // 且可以复用迭代器。
   std::deque<Node> fifo_queue_;
   using NodeIterator = decltype(fifo_queue_)::iterator;
+  // 访问模式：(map: key -> queue::iterator) -> (queue::iterator -> value)
   std::map<int, NodeIterator> cache_;
 };
 
