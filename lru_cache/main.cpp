@@ -1,6 +1,6 @@
-#include <deque>
+#include <list>
 #include <iostream>
-#include <map>
+#include <unordered_map>
 #include <sstream>
 
 #include <cassert>
@@ -18,66 +18,73 @@ public:
 
   bool get(int key, char& value)
   {
-    auto it = cache_.find(key);
-    if (it == std::end(cache_)) {
+    auto it = node_iter_from_key_.find(key);
+    if (it == node_iter_from_key_.end()) {
       return false;
     }
     value = it->second->second;
-    upsert(it->second->first, it->second->second);
+    // 把该节点移到队尾（最近使用）
+    order_.splice(order_.end(), order_, it->second);
     return true;
   }
 
   bool put(int key, char value)
   {
     bool retired = false;
-    if (fifo_queue_.size() >= capacity_) {
-      int key_retired;
-      retired = retire(key_retired);;
+    auto it = node_iter_from_key_.find(key);
+    if (it == node_iter_from_key_.end()) {
+      // 键不存在：若满则驱逐，再插入
+      if (order_.size() >= capacity_) {
+        int key_retired;
+        retired = retire(key_retired);
+      }
+      order_.emplace_back(key, value);
+      node_iter_from_key_.emplace(key, std::prev(order_.end()));
+    } else {
+      // 键已存在：更新值并移到队尾
+      it->second->second = value;
+      order_.splice(order_.end(), order_, it->second);
     }
-
-    upsert(key, value);
     return retired;
   }
 
   bool retire(int& key)
   {
-    if (fifo_queue_.empty()) {
+    if (order_.empty()) {
       return false;
     }
-
-    auto node = fifo_queue_.front();
-    fifo_queue_.pop_front();
-    cache_.erase(node.first);
+    auto node = order_.front();
+    order_.pop_front();
+    node_iter_from_key_.erase(node.first);
     key = node.first;
     return true;
   }
 
   bool upsert(int key, char value)
   {
-    auto it = cache_.find(key);
-    if (it == std::end(cache_)) {
-      auto nit = fifo_queue_.insert(std::end(fifo_queue_), {key, value});
-      cache_.emplace(key, nit);
+    auto it = node_iter_from_key_.find(key);
+    if (it == node_iter_from_key_.end()) {
+      order_.emplace_back(key, value);
+      node_iter_from_key_.emplace(key, std::prev(order_.end()));
       return true;
     } else {
-      // 可否优化，即复用迭代器？
-      fifo_queue_.erase(it->second);
-      auto nit = fifo_queue_.insert(std::end(fifo_queue_), {key, value});
-      it->second = nit;
-      return false; 
+      // 更新值并移到队尾
+      it->second->second = value;
+      order_.splice(order_.end(), order_, it->second);
+      return false;
     }
   }
 
   std::size_t size()
   {
-    return fifo_queue_.size();
+    return order_.size();
   }
 
   std::string to_string()
   {
     std::stringstream os;
     os << "cache=>";
-    for (auto p: fifo_queue_) {
+    for (auto p: order_) {
       os << "{" << p.first << "," << p.second << "},";
     }
 
@@ -88,12 +95,9 @@ private:
   std::size_t capacity_{ 0 };
   std::size_t size_{ 0 };
   using Node = std::pair<int, char>;
-  // 如何高效操纵 fifo_queue_ 的迭代器，比如迭代器有没有办法出队后再重新入队并
-  // 且可以复用迭代器。
-  std::deque<Node> fifo_queue_;
-  using NodeIterator = decltype(fifo_queue_)::iterator;
-  // 访问模式：(map: key -> queue::iterator) -> (queue::iterator -> value)
-  std::map<int, NodeIterator> cache_;
+  std::list<Node> order_; //<! 维护 LRU 顺序
+  using NodeIterator = std::list<Node>::iterator; //<! 稳定迭代器
+  std::unordered_map<int, NodeIterator> node_iter_from_key_; //<! key -> list 迭代器
 };
 
 int main(int argc, char* argv[])
@@ -195,7 +199,7 @@ int main(int argc, char* argv[])
   std::cout << "put: " << rb << " key: " << key << " value: " << value << std::endl;
   std::cout << "size: " << cache.size() << std::endl;
   std::cout << cache.to_string() << std::endl;
-  assert(rb);
+  assert(!rb);
   assert(cache.size() == 5);
 
   value = 'A';;
