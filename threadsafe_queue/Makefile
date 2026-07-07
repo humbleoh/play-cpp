@@ -8,7 +8,7 @@ ifeq ($(BUILD), debug)
 CXXFLAGS += -g -fno-omit-frame-pointer
 CXXFLAGS += -fsanitize=address
 #CXXFLAGS += -fsanitize=leak
-LDFLAGS += -static-libsan -fsanitize=address
+LDFLAGS += -static-libasan -fsanitize=address
 #LDFLAGS += -llsan -fsanitize=leak
 endif
 
